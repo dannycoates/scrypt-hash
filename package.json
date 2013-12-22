@@ -1,0 +1,28 @@
+{
+  "name": "scrypt-hash",
+  "version": "1.1.6",
+  "description": "crypto_scrypt binding for node",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "install": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dannycoates/scrypt-hash.git"
+  },
+  "keywords": [
+    "scrypt",
+    "hash"
+  ],
+  "dependencies": {
+    "bindings": "1.1.1"
+  },
+  "author": "Danny Coates",
+  "license": "BSD",
+  "gypfile": true,
+  "bugs": {
+    "url": "https://github.com/dannycoates/scrypt-hash/issues"
+  },
+  "homepage": "https://github.com/dannycoates/scrypt-hash"
+}
