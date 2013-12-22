@@ -1,3 +1,4 @@
+#include <string.h>
 #include <node.h>
 #include <node_internals.h>
 #include <node_buffer.h>

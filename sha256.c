@@ -204,10 +204,10 @@ SHA256_Pad(SHA256_CTX * ctx)
 	/* Add 1--64 bytes so that the resulting length is 56 mod 64 */
 	r = (ctx->count[1] >> 3) & 0x3f;
 	plen = (r < 56) ? (56 - r) : (120 - r);
-	SHA256_Update(ctx, PAD, (size_t)plen);
+	SHA256_Update_Scrypt(ctx, PAD, (size_t)plen);
 
 	/* Add the terminating bit-count */
-	SHA256_Update(ctx, len, 8);
+	SHA256_Update_Scrypt(ctx, len, 8);
 }
 
 /* SHA-256 initialization.  Begins a SHA-256 operation. */
@@ -231,7 +231,7 @@ SHA256_Init(SHA256_CTX * ctx)
 
 /* Add bytes into the hash */
 void
-SHA256_Update(SHA256_CTX * ctx, const void *in, size_t len)
+SHA256_Update_Scrypt(SHA256_CTX * ctx, const void *in, size_t len)
 {
 	uint32_t bitlen[2];
 	uint32_t r;
@@ -277,7 +277,7 @@ SHA256_Update(SHA256_CTX * ctx, const void *in, size_t len)
  * and clears the context state.
  */
 void
-SHA256_Final(unsigned char digest[32], SHA256_CTX * ctx)
+SHA256_Final_Scrypt(unsigned char digest[32], SHA256_CTX * ctx)
 {
 
 	/* Add padding */
@@ -302,8 +302,8 @@ HMAC_SHA256_Init(HMAC_SHA256_CTX * ctx, const void * _K, size_t Klen)
 	/* If Klen > 64, the key is really SHA256(K). */
 	if (Klen > 64) {
 		SHA256_Init(&ctx->ictx);
-		SHA256_Update(&ctx->ictx, K, Klen);
-		SHA256_Final(khash, &ctx->ictx);
+		SHA256_Update_Scrypt(&ctx->ictx, K, Klen);
+		SHA256_Final_Scrypt(khash, &ctx->ictx);
 		K = khash;
 		Klen = 32;
 	}
@@ -313,14 +313,14 @@ HMAC_SHA256_Init(HMAC_SHA256_CTX * ctx, const void * _K, size_t Klen)
 	memset(pad, 0x36, 64);
 	for (i = 0; i < Klen; i++)
 		pad[i] ^= K[i];
-	SHA256_Update(&ctx->ictx, pad, 64);
+	SHA256_Update_Scrypt(&ctx->ictx, pad, 64);
 
 	/* Outer SHA256 operation is SHA256(K xor [block of 0x5c] || hash). */
 	SHA256_Init(&ctx->octx);
 	memset(pad, 0x5c, 64);
 	for (i = 0; i < Klen; i++)
 		pad[i] ^= K[i];
-	SHA256_Update(&ctx->octx, pad, 64);
+	SHA256_Update_Scrypt(&ctx->octx, pad, 64);
 
 	/* Clean the stack. */
 	memset(khash, 0, 32);
@@ -328,27 +328,27 @@ HMAC_SHA256_Init(HMAC_SHA256_CTX * ctx, const void * _K, size_t Klen)
 
 /* Add bytes to the HMAC-SHA256 operation. */
 void
-HMAC_SHA256_Update(HMAC_SHA256_CTX * ctx, const void *in, size_t len)
+HMAC_SHA256_Update_Scrypt(HMAC_SHA256_CTX * ctx, const void *in, size_t len)
 {
 
 	/* Feed data to the inner SHA256 operation. */
-	SHA256_Update(&ctx->ictx, in, len);
+	SHA256_Update_Scrypt(&ctx->ictx, in, len);
 }
 
 /* Finish an HMAC-SHA256 operation. */
 void
-HMAC_SHA256_Final(unsigned char digest[32], HMAC_SHA256_CTX * ctx)
+HMAC_SHA256_Final_Scrypt(unsigned char digest[32], HMAC_SHA256_CTX * ctx)
 {
 	unsigned char ihash[32];
 
 	/* Finish the inner SHA256 operation. */
-	SHA256_Final(ihash, &ctx->ictx);
+	SHA256_Final_Scrypt(ihash, &ctx->ictx);
 
 	/* Feed the inner hash to the outer SHA256 operation. */
-	SHA256_Update(&ctx->octx, ihash, 32);
+	SHA256_Update_Scrypt(&ctx->octx, ihash, 32);
 
 	/* Finish the outer SHA256 operation. */
-	SHA256_Final(digest, &ctx->octx);
+	SHA256_Final_Scrypt(digest, &ctx->octx);
 
 	/* Clean the stack. */
 	memset(ihash, 0, 32);
@@ -374,7 +374,7 @@ PBKDF2_SHA256(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
 
 	/* Compute HMAC state after processing P and S. */
 	HMAC_SHA256_Init(&PShctx, passwd, passwdlen);
-	HMAC_SHA256_Update(&PShctx, salt, saltlen);
+	HMAC_SHA256_Update_Scrypt(&PShctx, salt, saltlen);
 
 	/* Iterate through the blocks. */
 	for (i = 0; i * 32 < dkLen; i++) {
@@ -383,8 +383,8 @@ PBKDF2_SHA256(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
 
 		/* Compute U_1 = PRF(P, S || INT(i)). */
 		memcpy(&hctx, &PShctx, sizeof(HMAC_SHA256_CTX));
-		HMAC_SHA256_Update(&hctx, ivec, 4);
-		HMAC_SHA256_Final(U, &hctx);
+		HMAC_SHA256_Update_Scrypt(&hctx, ivec, 4);
+		HMAC_SHA256_Final_Scrypt(U, &hctx);
 
 		/* T_i = U_1 ... */
 		memcpy(T, U, 32);
@@ -392,8 +392,8 @@ PBKDF2_SHA256(const uint8_t * passwd, size_t passwdlen, const uint8_t * salt,
 		for (j = 2; j <= c; j++) {
 			/* Compute U_j. */
 			HMAC_SHA256_Init(&hctx, passwd, passwdlen);
-			HMAC_SHA256_Update(&hctx, U, 32);
-			HMAC_SHA256_Final(U, &hctx);
+			HMAC_SHA256_Update_Scrypt(&hctx, U, 32);
+			HMAC_SHA256_Final_Scrypt(U, &hctx);
 
 			/* ... xor U_j ... */
 			for (k = 0; k < 32; k++)
