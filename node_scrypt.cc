@@ -10,9 +10,9 @@ extern "C" {
 }
 
 #define ASSERT_IS_BUFFER(val) \
-  if (!Buffer::HasInstance(val)) { \
-    return ThrowException(Exception::TypeError(String::New("Not a buffer"))); \
-  }
+	if (!Buffer::HasInstance(val)) { \
+		return ThrowException(Exception::TypeError(String::New("Not a buffer"))); \
+	}
 
 #define ASSERT_IS_NUMBER(val) \
 	if (!val->IsNumber()) { \
@@ -62,7 +62,7 @@ void EIO_ScryptAfter(uv_work_t* work_req, int status) {
 	Persistent<Object> obj = req->obj;
 	if (req->err) {
 		argv[0] = Exception::Error(String::New("Scrypt error"));
-    argv[1] = Local<Value>::New(Undefined());
+		argv[1] = Local<Value>::New(Undefined());
 	}
 	else {
 		argv[0] = Local<Value>::New(Undefined());
