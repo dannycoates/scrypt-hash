@@ -5,7 +5,6 @@
 #include <v8.h>
 
 extern "C" {
-	#include "scrypt_platform.h"
 	#include "crypto_scrypt.h"
 }
 
