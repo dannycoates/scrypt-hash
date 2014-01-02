@@ -1,30 +1,83 @@
 #include <string.h>
 #include <node.h>
-#include <node_internals.h>
-#include <node_buffer.h>
-#include <v8.h>
+#include "nan.h"
 
 extern "C" {
 	#include "crypto_scrypt.h"
 }
 
 #define ASSERT_IS_BUFFER(val) \
-	if (!Buffer::HasInstance(val)) { \
-		return ThrowException(Exception::TypeError(String::New("Not a buffer"))); \
+	if (!node::Buffer::HasInstance(val)) { \
+		return NanThrowError("not a buffer"); \
 	}
 
 #define ASSERT_IS_NUMBER(val) \
 	if (!val->IsNumber()) { \
-		type_error = "not a number"; \
-		goto err; \
+		return NanThrowError("not a number"); \
 	}
 
 using namespace v8;
-using namespace node;
 
-struct scrypt_req {
-	uv_work_t work_req;
-	int err;
+class ScryptWorker : public NanAsyncWorker {
+public:
+	ScryptWorker(
+		NanCallback *callback,
+		char* pass,
+		size_t pass_len,
+		char* salt,
+		size_t salt_len,
+		uint64_t N,
+		uint32_t r,
+		uint32_t p,
+		size_t buf_len
+		)
+	:
+	NanAsyncWorker(callback),
+	pass(pass),
+	pass_len(pass_len),
+	salt(salt),
+	salt_len(salt_len),
+	N(N),
+	r(r),
+	p(p),
+	buf_len(buf_len) {}
+
+	~ScryptWorker() {
+		delete[] pass;
+		delete[] salt;
+		delete[] buf;
+	}
+
+	void Execute () {
+		buf = new char[buf_len];
+		if (
+			crypto_scrypt(
+				(const uint8_t*)pass,
+				pass_len,
+				(const uint8_t*)salt,
+				salt_len,
+				N,
+				r,
+				p,
+				(uint8_t*)buf,
+				buf_len)
+			) {
+			errmsg = "Scrypt Error";
+		}
+		memset(pass, 0, pass_len);
+		memset(salt, 0, salt_len);
+	};
+
+	void HandleOKCallback () {
+		NanScope();
+		Local<Value> argv[] = {
+			NanNewLocal<Value>(Undefined()),
+			NanNewBufferHandle(buf, buf_len)
+		};
+		callback->Call(2, argv);
+	};
+
+private:
 	char* pass;
 	size_t pass_len;
 	char* salt;
@@ -34,51 +87,11 @@ struct scrypt_req {
 	uint32_t p;
 	char* buf;
 	size_t buf_len;
-	Persistent<Object> obj;
 };
 
-void EIO_Scrypt(uv_work_t* work_req) {
-	scrypt_req* req = container_of(work_req, scrypt_req, work_req);
-	req->err = crypto_scrypt(
-		(const uint8_t*)req->pass,
-		req->pass_len,
-		(const uint8_t*)req->salt,
-		req->salt_len,
-		req->N,
-		req->r,
-		req->p,
-		(uint8_t*)req->buf,
-		req->buf_len);
-	memset(req->pass, 0, req->pass_len);
-	memset(req->salt, 0, req->salt_len);
-}
+NAN_METHOD(Scrypt) {
+	NanScope();
 
-void EIO_ScryptAfter(uv_work_t* work_req, int status) {
-	assert(status == 0);
-	scrypt_req* req = container_of(work_req, scrypt_req, work_req);
-	HandleScope scope;
-	Local<Value> argv[2];
-	Persistent<Object> obj = req->obj;
-	if (req->err) {
-		argv[0] = Exception::Error(String::New("Scrypt error"));
-		argv[1] = Local<Value>::New(Undefined());
-	}
-	else {
-		argv[0] = Local<Value>::New(Undefined());
-		argv[1] = Encode(req->buf, req->buf_len, BUFFER);
-	}
-	MakeCallback(obj, "ondone", ARRAY_SIZE(argv), argv);
-	obj.Dispose();
-	delete[] req->pass;
-	delete[] req->salt;
-	delete[] req->buf;
-	delete req;
-}
-
-Handle<Value> Scrypt(const Arguments& args) {
-	HandleScope scope;
-
-	const char* type_error = NULL;
 	char* pass = NULL;
 	ssize_t pass_len = -1;
 	ssize_t pass_written = -1;
@@ -89,74 +102,60 @@ Handle<Value> Scrypt(const Arguments& args) {
 	uint32_t r = 0;
 	uint32_t p = 0;
 	uint8_t buf_len = 0;
-	scrypt_req* req = NULL;
+	NanCallback *callback = 0;
 
 	if (args.Length() != 7) {
-		type_error = "Bad parameters";
-		goto err;
+		return NanThrowError("Bad parameters");
 	}
-
 	ASSERT_IS_BUFFER(args[0]);
-	pass_len = Buffer::Length(args[0]);
-	if (pass_len < 0) {
-		type_error = "Bad data";
-		goto err;
-	}
-	pass = new char[pass_len];
-	pass_written = DecodeWrite(pass, pass_len, args[0], BINARY);
-	assert(pass_len == pass_written);
-
 	ASSERT_IS_BUFFER(args[1]);
-	salt_len = Buffer::Length(args[1]);
-	if (salt_len < 0) {
-		type_error = "Bad salt";
-		goto err;
+	ASSERT_IS_NUMBER(args[2]);
+	ASSERT_IS_NUMBER(args[3]);
+	ASSERT_IS_NUMBER(args[4]);
+	ASSERT_IS_NUMBER(args[5]);
+	if (!args[6]->IsFunction()) {
+		return NanThrowError("callback not a function");
 	}
+
+#if NODE_MAJOR_VERSION == 0 && NODE_MINOR_VERSION < 10
+	Local<Object> data_buf = args[0]->ToObject();
+	Local<Object> salt_buf = args[1]->ToObject();
+#else
+	Local<Value> data_buf = args[0];
+	Local<Value> salt_buf = args[1];
+#endif
+
+	pass_len = node::Buffer::Length(data_buf);
+	if (pass_len < 0) {
+		return NanThrowError("Bad data");
+	}
+
+	salt_len = node::Buffer::Length(salt_buf);
+	if (salt_len < 0) {
+		return NanThrowError("Bad salt");
+	}
+
+	N = args[2]->Uint32Value();
+	r = args[3]->Uint32Value();
+	p = args[4]->Uint32Value();
+	buf_len = args[5]->Uint32Value();
+	callback = new NanCallback(args[6].As<Function>());
+	pass = new char[pass_len];
+	pass_written = node::DecodeWrite(pass, pass_len, args[0], node::BINARY);
+	assert(pass_len == pass_written);
 	salt = new char[salt_len];
-	salt_written = DecodeWrite(salt, salt_len, args[1], BINARY);
+	salt_written = node::DecodeWrite(salt, salt_len, args[1], node::BINARY);
 	assert(salt_len == salt_written);
 
-	ASSERT_IS_NUMBER(args[2]);
-	N = args[2]->Int32Value();
-
-	ASSERT_IS_NUMBER(args[3]);
-	r = args[3]->Int32Value();
-
-	ASSERT_IS_NUMBER(args[4]);
-	p = args[4]->Int32Value();
-
-	ASSERT_IS_NUMBER(args[5]);
-	buf_len = args[5]->Int32Value();
-
-	if (!args[6]->IsFunction()) {
-		type_error = "callback not a function";
-		goto err;
-	}
-
-	req = new scrypt_req;
-	req->err = 0;
-	req->pass = pass;
-	req->pass_len = pass_len;
-	req->salt = salt;
-	req->salt_len = salt_len;
-	req->N = N;
-	req->r = r;
-	req->p = p;
-	req->buf = new char[buf_len];
-	req->buf_len = buf_len;
-	req->obj = Persistent<Object>::New(Object::New());
-	req->obj->Set(String::New("ondone"), args[6]);
-	uv_queue_work(uv_default_loop(), &req->work_req, EIO_Scrypt, EIO_ScryptAfter);
-	return Undefined();
-
-err:
-	delete[] salt;
-	delete[] pass;
-	return ThrowException(Exception::TypeError(String::New(type_error)));
+	NanAsyncQueueWorker(
+		new ScryptWorker(callback, pass, pass_len, salt, salt_len, N, r, p, buf_len)
+	);
+	NanReturnUndefined();
 }
 
-void init(Handle<Object> target) {
-	NODE_SET_METHOD(target, "scrypt", Scrypt);
+void init(Handle<Object> exports) {
+	exports->Set(NanSymbol("scrypt"),
+		FunctionTemplate::New(Scrypt)->GetFunction());
 }
 
 NODE_MODULE(scrypt, init);

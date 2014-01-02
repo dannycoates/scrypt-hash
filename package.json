@@ -1,6 +1,6 @@
 {
   "name": "scrypt-hash",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "crypto_scrypt binding for node",
   "main": "index.js",
   "scripts": {
@@ -16,7 +16,8 @@
     "hash"
   ],
   "dependencies": {
-    "bindings": "1.1.1"
+    "bindings": "1.1.1",
+    "nan": "0.7.0"
   },
   "author": "Danny Coates",
   "license": "BSD",

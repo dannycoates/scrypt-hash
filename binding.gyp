@@ -8,6 +8,9 @@
 			],
 			'defines': [
 				'HAVE_CONFIG_H'
+			],
+			'include_dirs' : [
+			    "<!(node -e \"require('nan')\")"
 			]
 		}
 	]

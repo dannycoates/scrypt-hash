@@ -47,15 +47,6 @@ static void blockmix_salsa8(__m128i *, __m128i *, __m128i *, size_t);
 static uint64_t integerify(void *, size_t);
 static void smix(uint8_t *, size_t, uint64_t, void *, void *);
 
-static inline uint32_t
-be32dec(const void *pp)
-{
-	const uint8_t *p = (uint8_t const *)pp;
-
-	return ((uint32_t)(p[3]) + ((uint32_t)(p[2]) << 8) +
-	    ((uint32_t)(p[1]) << 16) + ((uint32_t)(p[0]) << 24));
-}
-
 static inline void
 be32enc(void *pp, uint32_t x)
 {
