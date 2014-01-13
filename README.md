@@ -45,6 +45,14 @@ For info on what N, r, p do see http://tools.ietf.org/html/draft-josefsson-scryp
 
 Major and Minor version numbers follow the scrypt C source. The Patch number of this library may differ from the upstream version as changes to either will increment this one.
 
+## Installation
+
+The scrypt source needs to include some openssl header files when building during installation. You can install these as follows:
+
+```bash
+$ sudo apt-get install libssl-dev # Debian / Ubuntu
+```
+
 ## License
 
 BSD 2-Clause, Copyright 2013 Danny Coates
