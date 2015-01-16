@@ -62,7 +62,7 @@ public:
 				(uint8_t*)buf,
 				buf_len)
 			) {
-			errmsg = "Scrypt Error";
+			SetErrorMessage("Scrypt Error");
 		}
 		memset(pass, 0, pass_len);
 		memset(salt, 0, salt_len);
@@ -71,7 +71,7 @@ public:
 	void HandleOKCallback () {
 		NanScope();
 		Local<Value> argv[] = {
-			NanNewLocal<Value>(Undefined()),
+			NanUndefined(),
 			NanNewBufferHandle(buf, buf_len)
 		};
 		callback->Call(2, argv);
@@ -94,10 +94,8 @@ NAN_METHOD(Scrypt) {
 
 	char* pass = NULL;
 	ssize_t pass_len = -1;
-	ssize_t pass_written = -1;
 	char* salt = NULL;
 	ssize_t salt_len = -1;
-	ssize_t salt_written = -1;
 	uint64_t N = 0;
 	uint32_t r = 0;
 	uint32_t p = 0;
@@ -141,11 +139,10 @@ NAN_METHOD(Scrypt) {
 	buf_len = args[5]->Uint32Value();
 	callback = new NanCallback(args[6].As<Function>());
 	pass = new char[pass_len];
-	pass_written = node::DecodeWrite(pass, pass_len, args[0], node::BINARY);
-	assert(pass_len == pass_written);
+	memcpy(pass, node::Buffer::Data(data_buf), pass_len);
+
 	salt = new char[salt_len];
-	salt_written = node::DecodeWrite(salt, salt_len, args[1], node::BINARY);
-	assert(salt_len == salt_written);
+	memcpy(salt, node::Buffer::Data(salt_buf), salt_len);
 
 	NanAsyncQueueWorker(
 		new ScryptWorker(callback, pass, pass_len, salt, salt_len, N, r, p, buf_len)
@@ -154,8 +151,8 @@ NAN_METHOD(Scrypt) {
 }
 
 void init(Handle<Object> exports) {
-	exports->Set(NanSymbol("scrypt"),
-		FunctionTemplate::New(Scrypt)->GetFunction());
+	exports->Set(NanNew<String>("scrypt"),
+		NanNew<FunctionTemplate>(Scrypt)->GetFunction());
 }
 
 NODE_MODULE(scrypt, init);
