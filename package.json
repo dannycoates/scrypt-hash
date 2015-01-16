@@ -1,6 +1,6 @@
 {
   "name": "scrypt-hash",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "crypto_scrypt binding for node",
   "main": "index.js",
   "scripts": {
