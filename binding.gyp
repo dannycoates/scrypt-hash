@@ -67,6 +67,12 @@
 							],
 							[
 								'target_arch=="arm"', {
+									'sources!': [
+                						                'crypto_scrypt-sse.c'
+									],
+									'sources': [
+										'crypto_scrypt-nosse.c'
+									],
 									'variables': {
 										'openssl_config_path': '<(nodedir)/deps/openssl/config/arm'
 									}
