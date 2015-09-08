@@ -8,20 +8,20 @@ extern "C" {
 
 #define ASSERT_IS_BUFFER(val) \
 	if (!node::Buffer::HasInstance(val)) { \
-		return NanThrowError("not a buffer"); \
+		return Nan::ThrowError("not a buffer"); \
 	}
 
 #define ASSERT_IS_NUMBER(val) \
 	if (!val->IsNumber()) { \
-		return NanThrowError("not a number"); \
+		return Nan::ThrowError("not a number"); \
 	}
 
 using namespace v8;
 
-class ScryptWorker : public NanAsyncWorker {
+class ScryptWorker : public Nan::AsyncWorker {
 public:
 	ScryptWorker(
-		NanCallback *callback,
+		Nan::Callback *callback,
 		char* pass,
 		size_t pass_len,
 		char* salt,
@@ -32,7 +32,7 @@ public:
 		size_t buf_len
 		)
 	:
-	NanAsyncWorker(callback),
+	Nan::AsyncWorker(callback),
 	pass(pass),
 	pass_len(pass_len),
 	salt(salt),
@@ -69,10 +69,11 @@ public:
 	};
 
 	void HandleOKCallback () {
-		NanScope();
+		Nan::HandleScope scope;
+
 		Local<Value> argv[] = {
-			NanUndefined(),
-			NanNewBufferHandle(buf, buf_len)
+			Nan::Undefined(),
+			Nan::CopyBuffer(buf, buf_len).ToLocalChecked()
 		};
 		callback->Call(2, argv);
 	};
@@ -90,7 +91,7 @@ private:
 };
 
 NAN_METHOD(Scrypt) {
-	NanScope();
+	Nan::HandleScope scope;
 
 	char* pass = NULL;
 	ssize_t pass_len = -1;
@@ -100,59 +101,59 @@ NAN_METHOD(Scrypt) {
 	uint32_t r = 0;
 	uint32_t p = 0;
 	uint8_t buf_len = 0;
-	NanCallback *callback = 0;
+	Nan::Callback *callback = 0;
 
-	if (args.Length() != 7) {
-		return NanThrowError("Bad parameters");
+	if (info.Length() != 7) {
+		return Nan::ThrowError("Bad parameters");
 	}
-	ASSERT_IS_BUFFER(args[0]);
-	ASSERT_IS_BUFFER(args[1]);
-	ASSERT_IS_NUMBER(args[2]);
-	ASSERT_IS_NUMBER(args[3]);
-	ASSERT_IS_NUMBER(args[4]);
-	ASSERT_IS_NUMBER(args[5]);
-	if (!args[6]->IsFunction()) {
-		return NanThrowError("callback not a function");
+	ASSERT_IS_BUFFER(info[0]);
+	ASSERT_IS_BUFFER(info[1]);
+	ASSERT_IS_NUMBER(info[2]);
+	ASSERT_IS_NUMBER(info[3]);
+	ASSERT_IS_NUMBER(info[4]);
+	ASSERT_IS_NUMBER(info[5]);
+	if (!info[6]->IsFunction()) {
+		return Nan::ThrowError("callback not a function");
 	}
 
 #if NODE_MAJOR_VERSION == 0 && NODE_MINOR_VERSION < 10
-	Local<Object> data_buf = args[0]->ToObject();
-	Local<Object> salt_buf = args[1]->ToObject();
+	Local<Object> data_buf = info[0]->ToObject();
+	Local<Object> salt_buf = info[1]->ToObject();
 #else
-	Local<Value> data_buf = args[0];
-	Local<Value> salt_buf = args[1];
+	Local<Value> data_buf = info[0];
+	Local<Value> salt_buf = info[1];
 #endif
 
 	pass_len = node::Buffer::Length(data_buf);
 	if (pass_len < 0) {
-		return NanThrowError("Bad data");
+		return Nan::ThrowError("Bad data");
 	}
 
 	salt_len = node::Buffer::Length(salt_buf);
 	if (salt_len < 0) {
-		return NanThrowError("Bad salt");
+		return Nan::ThrowError("Bad salt");
 	}
 
-	N = args[2]->Uint32Value();
-	r = args[3]->Uint32Value();
-	p = args[4]->Uint32Value();
-	buf_len = args[5]->Uint32Value();
-	callback = new NanCallback(args[6].As<Function>());
+	N = info[2]->Uint32Value();
+	r = info[3]->Uint32Value();
+	p = info[4]->Uint32Value();
+	buf_len = info[5]->Uint32Value();
+	callback = new Nan::Callback(info[6].As<Function>());
 	pass = new char[pass_len];
 	memcpy(pass, node::Buffer::Data(data_buf), pass_len);
 
 	salt = new char[salt_len];
 	memcpy(salt, node::Buffer::Data(salt_buf), salt_len);
 
-	NanAsyncQueueWorker(
+	Nan::AsyncQueueWorker(
 		new ScryptWorker(callback, pass, pass_len, salt, salt_len, N, r, p, buf_len)
 	);
-	NanReturnUndefined();
 }
 
-void init(Handle<Object> exports) {
-	exports->Set(NanNew<String>("scrypt"),
-		NanNew<FunctionTemplate>(Scrypt)->GetFunction());
+
+NAN_MODULE_INIT(init) {
+	Nan::Set(target, Nan::New<String>("scrypt").ToLocalChecked(),
+		Nan::GetFunction(Nan::New<FunctionTemplate>(Scrypt)).ToLocalChecked());
 }
 
 NODE_MODULE(scrypt, init);

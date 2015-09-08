@@ -13,6 +13,7 @@ scrypt(
 	32,
 	function (err, K2) {
 		console.timeEnd('native')
+		if (err) { return console.error(err) }
 		if (K2.toString('hex') === '5b82f146a64126923e4167a0350bb181feba61f63cb1714012b19cb0be0119c5') {
 			console.log('YAY!')
 		}
