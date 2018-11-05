@@ -134,10 +134,10 @@ NAN_METHOD(Scrypt) {
 		return Nan::ThrowError("Bad salt");
 	}
 
-	N = info[2]->Uint32Value();
-	r = info[3]->Uint32Value();
-	p = info[4]->Uint32Value();
-	buf_len = info[5]->Uint32Value();
+	N = info[2].As<Uint32>()->Value();
+	r = info[3].As<Uint32>()->Value();
+	p = info[4].As<Uint32>()->Value();
+	buf_len = info[5].As<Uint32>()->Value();
 	callback = new Nan::Callback(info[6].As<Function>());
 	pass = new char[pass_len];
 	memcpy(pass, node::Buffer::Data(data_buf), pass_len);
