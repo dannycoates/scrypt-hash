@@ -1,7 +1,7 @@
 var scrypt = require('./')
 
-var K1 = Buffer('f84913e3d8e6d624689d0a3e9678ac8dcc79d2c2f3d9641488cd9d6ef6cd83dd', 'hex')
-var salt = Buffer('identity.mozilla.com/picl/v1/scrypt')
+var K1 = Buffer.from('f84913e3d8e6d624689d0a3e9678ac8dcc79d2c2f3d9641488cd9d6ef6cd83dd', 'hex')
+var salt = Buffer.from('identity.mozilla.com/picl/v1/scrypt', 'utf8')
 
 console.time('native')
 scrypt(

@@ -9,8 +9,8 @@ node bindings for crypto_scrypt from [scrypt](http://www.tarsnap.com/scrypt.html
 ```js
 var scrypt = require('scrypt-hash')
 
-var password = Buffer('aprettybadpassword')
-var salt = Buffer('adashofsalt')
+var password = Buffer.from('aprettybadpassword')
+var salt = Buffer.from('adashofsalt', 'utf8')
 var N = 1024 * 64
 var r = 8
 var p = 1
